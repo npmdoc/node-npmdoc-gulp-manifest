@@ -1,0 +1,225 @@
+<div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a
+
+        href="https://github.com/hillmanov/gulp-manifest"
+
+    >gulp-manifest (v0.1.1)</a>
+</h1>
+<h4>Generate HTML5 Cache Manifest files</h4>
+<div class="apidocSectionDiv"><a
+    href="#apidoc.tableOfContents"
+    id="apidoc.tableOfContents"
+><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.gulp-manifest">module gulp-manifest</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.gulp-manifest.gulp-manifest">
+            function <span class="apidocSignatureSpan"></span>gulp-manifest
+            <span class="apidocSignatureSpan">(options)</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.gulp-manifest" id="apidoc.module.gulp-manifest">module gulp-manifest</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.gulp-manifest.gulp-manifest" id="apidoc.element.gulp-manifest.gulp-manifest">
+        function <span class="apidocSignatureSpan"></span>gulp-manifest
+        <span class="apidocSignatureSpan">(options)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function manifest(options) {
+  var filename, exclude, cache, include, hasher, cwd, contents;
+
+  options = options || {};
+
+  if(options.basePath) {
+    gutil.log(&#x27;basePath option is deprecated. Consider using gulp.src base instead: https://github.com/gulpjs/gulp/blob/master/docs
+/API.md#optionsbase&#x27;);
+  }
+
+  filename = options.filename || &#x27;app.manifest&#x27;;
+  include = Array.prototype.concat(options.include || []);
+  exclude = Array.prototype.concat(options.exclude || []).concat(include);
+  cache = Array.prototype.concat(options.cache || []);
+  hasher = crypto.createHash(&#x27;sha256&#x27;);
+  cwd = process.cwd();
+  contents = [];
+
+  contents.push(&#x27;CACHE MANIFEST&#x27;);
+
+  if (options.timestamp) {
+    contents.push(&#x27;# Time: &#x27; + new Date());
+  }
+
+  if (options.revision) {
+    contents.push(&#x27;# Revision: &#x27; + options.revision);
+  }
+
+  contents.push(&#x27;&#x27;);
+  contents.push(&#x27;CACHE:&#x27;);
+
+  contents = contents.concat(include);
+
+  cache.forEach(function (file) {
+    contents.push(encodeURI(file));
+  });
+
+  function shouldExcludeFile(filePath) {
+    return exclude.some(minimatch.bind(null, filePath));
+  }
+
+  function writeToManifest(file) {
+    var prefix, suffix, filepath;
+
+    if (file.isNull())   return;
+    if (file.isStream()) return this.emit(&#x27;error&#x27;, new gutil.PluginError(&#x27;gulp-manifest&#x27;,  &#x27;Streaming not supported&#x27;));
+
+    prefix = slash(options.prefix || &#x27;&#x27;);
+    suffix = slash(options.suffix || &#x27;&#x27;);
+    filepath = slash(file.relative);
+
+    if (shouldExcludeFile(filepath)) {
+      return;
+    }
+
+    if(options.basePath) { // deprecated
+      var relative = path.relative(file.base, __dirname);
+      filepath = filepath.replace(new RegExp(&#x27;^&#x27; + path.join(relative, options.basePath)), &#x27;&#x27;);
+    }
+
+    filepath = [prefix, filepath, suffix].join(&#x27;&#x27;);
+
+    contents.push(encodeURI(filepath));
+
+    if (options.hash) {
+      hasher.update(file.contents, &#x27;binary&#x27;);
+    }
+  }
+
+  function endStream() {
+    // Network section
+    options.network = options.network || [&#x27;*&#x27;];
+    contents.push(&#x27;&#x27;);
+    contents.push(&#x27;NETWORK:&#x27;);
+    options.network.forEach(function (file) {
+      contents.push(encodeURI(file));
+    });
+
+    // Fallback section
+    if (options.fallback) {
+      contents.push(&#x27;&#x27;);
+      contents.push(&#x27;FALLBACK:&#x27;);
+      if (typeof options.fallback === &#x27;string&#x27;) {
+        options.fallback = [options.fallback];
+      }
+      options.fallback.forEach(function (file) {
+        var firstSpace = file.indexOf(&#x27; &#x27;);
+
+        if (firstSpace === -1) {
+          return gutil.log(&#x27;Invalid format for FALLBACK entry&#x27;, file);
+        }
+
+        contents.push(
+          encodeURI(file.substring(0, firstSpace)) +
+          &#x27; &#x27; +
+          encodeURI(file.substring(firstSpace + 1))
+        );
+      });
+    }
+
+    // Settings section
+    if (options.preferOnline) {
+      contents.push(&#x27;&#x27;);
+      contents.push(&#x27;SETTINGS:&#x27;);
+      contents.push(&#x27;prefer-online&#x27;);
+    }
+
+    // output hash to cache manifest
+    if (options.hash) {
+      contents.push(&#x27;&#x27;);
+      contents.push(&#x27;# hash: &#x27; + hasher.digest(&#x22;hex&#x22;));
+    }
+
+    var manifestFile = new gutil.File({
+      cwd: cwd,
+      base: cwd,
+      path: path.join(cwd, filename),
+      contents: new Buffer(contents.join(lineBreak))
+    });
+
+    this.emit(&#x27;data&#x27;, manifestFile);
+    this.emit(&#x27;end&#x27;);
+  }
+
+  return through(writeToManifest, endStream);
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
